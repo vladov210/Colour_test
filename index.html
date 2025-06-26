@@ -216,9 +216,21 @@ function handleAnswer(isMatch) {
     });
     updateStats();
     updateHistory();
-    playAudio(COLOR_AUDIO_PATH + (userCorrect ? RESULT_AUDIO.correct : RESULT_AUDIO.wrong));
-    // Next round after delay
-    setTimeout(nextRound, gameState.delay * 1000);
+    if (userCorrect) {
+        playAudio(COLOR_AUDIO_PATH + RESULT_AUDIO.correct);
+        nextRound();
+    } else {
+        // Play Wrong.mp3, then displayed color audio, then next round
+        const wrongAudio = new Audio(COLOR_AUDIO_PATH + RESULT_AUDIO.wrong);
+        wrongAudio.play();
+        wrongAudio.onended = function() {
+            const colorAudio = new Audio(COLOR_AUDIO_PATH + gameState.current.shown.audio);
+            colorAudio.play();
+            colorAudio.onended = function() {
+                nextRound();
+            };
+        };
+    }
 }
 function resetGame() {
     gameState.score = 0;
