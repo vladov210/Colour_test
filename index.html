@@ -67,13 +67,14 @@
             <tbody></tbody>
         </table>
     </div>
-    <div style="text-align:center; margin-top:20px; color:#888; font-size:0.9em;">Press <b>Enter</b> for match, <b>Space</b> for no match.</div>
+    
+    <div style="text-align:center; margin-top:20px; font-size:0.9em;">Press <b>Enter</b> for match, <b>Space</b> for no match.</div>
 </div>
 <script>
 // --- Game Data and State ---
 const COLORS = [
     { name: 'red', display: '#e74c3c', audio: 'red.mp3' },
-    { name: 'magenta', display: '#e056fd', audio: 'pink.mp3' },
+    { name: 'magenta', display: '#e056fd', audio: 'magenta.mp3' },
     { name: 'blue', display: '#3498db', audio: 'blue.mp3' },
     { name: 'green', display: '#27ae60', audio: 'green.mp3' },
     { name: 'yellow', display: '#f9ca24', audio: 'yellow.mp3' }
@@ -122,15 +123,35 @@ function updateHistory() {
     });
 }
 function showColorBox(color) {
+    // Set color-box background to displayed color
     const box = document.getElementById('colorBox');
     box.style.background = color.display;
-    // Change background of table, table header, and whole page
+    // Change background of table, table header, whole page, and container
     document.body.style.background = color.display;
     const historyTable = document.getElementById('historyTable');
     if (historyTable) {
         historyTable.style.background = color.display;
         const ths = historyTable.querySelectorAll('th');
         ths.forEach(th => th.style.background = color.display);
+    }
+    // Set container background
+    const container = document.querySelector('.container');
+    if (container) {
+        container.style.background = color.display;
+    }
+    // Set h3 Game History background
+    const h3 = document.querySelector('.history h3');
+    if (h3) {
+        h3.style.background = color.display;
+    }
+    // Set .history and .stats background
+    const historyDiv = document.querySelector('.history');
+    if (historyDiv) {
+        historyDiv.style.background = color.display;
+    }
+    const statsDiv = document.querySelector('.stats');
+    if (statsDiv) {
+        statsDiv.style.background = color.display;
     }
 }
 
