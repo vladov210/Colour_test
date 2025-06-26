@@ -68,7 +68,7 @@
         </table>
     </div>
     
-    <div style="text-align:center; margin-top:20px; font-size:0.9em;">Press <b>Enter</b> for match, <b>Space</b> for no match.</div>
+    <div style="text-align:center; margin-top:20px; font-size:0.9em;">Press <b>Enter</b> or tap on right side for match, <b>Space</b> or left side for no match.</div>
 </div>
 <script>
 // --- Game Data and State ---
@@ -297,6 +297,30 @@ document.addEventListener('keydown', function(e) {
         handleAnswer(false);
     }
 });
+
+// Add click/tap support for left/right side of the page
+function handlePageClick(e) {
+    // Only allow if a question is active and not yet answered
+    if (!gameState.current || gameState.current.answered) return;
+    // Get click/tap X position relative to viewport
+    let x;
+    if (e.touches && e.touches.length > 0) {
+        x = e.touches[0].clientX;
+    } else {
+        x = e.clientX;
+    }
+    const width = window.innerWidth;
+    if (x < width / 2) {
+        // Left half: Space (no match)
+        handleAnswer(false);
+    } else {
+        // Right half: Enter (match)
+        handleAnswer(true);
+    }
+}
+// Listen for mouse and touch events on the body
+window.addEventListener('click', handlePageClick);
+window.addEventListener('touchstart', handlePageClick);
 
 // --- Init ---
 loadSettings();
