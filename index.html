@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Naming Game</title>
+    <link rel="icon" href="static/favicon.ico">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 32px; }
+        h1 { text-align: center; color: #333; }
+        .color-box { width: 120px; height: 120px; margin: 20px auto; border-radius: 10px; border: 2px solid #ccc; }
+        .controls, .settings, .stats, .history, .audio-feedback { margin: 20px 0; }
+        .controls button, .settings select, .settings label, .settings input[type=checkbox], .controls input[type=checkbox] { font-size: 1rem; margin-right: 10px; }
+        .stats, .history { background: #f9f9f9; border-radius: 8px; padding: 16px; }
+        .stats span { display: inline-block; min-width: 120px; }
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .history-table th, .history-table td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; }
+        .history-table th { background: #eee; }
+        .audio-feedback { text-align: center; }
+        .reset-btn { background: #e74c3c; color: #fff; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; }
+        .reset-btn:hover { background: #c0392b; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Color Naming Game</h1>
+    <div class="color-box" id="colorBox"></div>
+    <div class="audio-feedback">
+        <button id="playColorAudio">🔊 Play Color Name</button>
+        <button id="playResultAudio">🔊 Play Result</button>
+    </div>
+    <div class="controls">
+        <button id="startGameBtn">Start Game</button>
+        <label><input type="checkbox" id="testMode"> TEST</label>
+    </div>
+    <div class="settings">
+        <label for="delaySelect">Delay between rounds:</label>
+        <select id="delaySelect">
+            <option value="5">5 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="20">20 seconds</option>
+        </select>
+    </div>
+    <div class="stats">
+        <span>Score: <b id="score">0</b></span>
+        <span>Total Games: <b id="totalGames">0</b></span>
+        <span>Score %: <b id="scorePercent">0%</b></span>
+        <button class="reset-btn" id="resetBtn">Reset</button>
+    </div>
+    <div class="history">
+        <h3>Game History</h3>
+        <table class="history-table" id="historyTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Shown</th>
+                    <th>Spoken</th>
+                    <th>Input</th>
+                    <th>Result</th>
+                    <th>Score</th>
+                    <th>%</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div style="text-align:center; margin-top:20px; color:#888; font-size:0.9em;">Press <b>Enter</b> for match, <b>Space</b> for no match.</div>
+</div>
+<script>
+// --- Game Data and State ---
+const COLORS = [
+    { name: 'red', display: '#e74c3c', audio: 'red.mp3' },
+    { name: 'magenta', display: '#e056fd', audio: 'pink.mp3' },
+    { name: 'blue', display: '#3498db', audio: 'blue.mp3' },
+    { name: 'green', display: '#27ae60', audio: 'green.mp3' },
+    { name: 'yellow', display: '#f9ca24', audio: 'yellow.mp3' }
+];
+const COLOR_AUDIO_PATH = 'static/';
+const RESULT_AUDIO = {
+    correct: 'You were right.mp3',
+    wrong: 'Wrong.mp3'
+};
+let gameState = {
+    score: 0,
+    totalGames: 0,
+    history: [],
+    current: null,
+    delay: 5,
+    testMode: false,
+    testInterval: null
+};
+
+// --- Utility Functions ---
+function setCookie(name, value, days=365) {
+    const d = new Date();
+    d.setTime(d.getTime() + (days*24*60*60*1000));
+    document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/`;
+}
+function getCookie(name) {
+    const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    return v ? v[2] : null;
+}
+
+// --- UI Update Functions ---
+function updateStats() {
+    document.getElementById('score').textContent = gameState.score;
+    document.getElementById('totalGames').textContent = gameState.totalGames;
+    document.getElementById('scorePercent').textContent =
+        gameState.totalGames ? Math.round(100 * gameState.score / gameState.totalGames) + '%' : '0%';
+}
+function updateHistory() {
+    const tbody = document.getElementById('historyTable').querySelector('tbody');
+    tbody.innerHTML = '';
+    gameState.history.forEach((h, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i+1}</td><td>${h.shown}</td><td>${h.spoken}</td><td>${h.input}</td><td>${h.result}</td><td>${h.score}</td><td>${h.percent}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+function showColorBox(color) {
+    const box = document.getElementById('colorBox');
+    box.style.background = color.display;
+}
+
+// --- Game Logic ---
+function randomColor() {
+    return COLORS[Math.floor(Math.random() * COLORS.length)];
+}
+function startGame() {
+    nextRound();
+}
+function nextRound() {
+    // Pick shown color
+    const shown = randomColor();
+    // Decide if spoken matches (50% chance)
+    let spoken;
+    if (Math.random() < 0.5) {
+        spoken = shown;
+    } else {
+        do { spoken = randomColor(); } while (spoken === shown);
+    }
+    gameState.current = { shown, spoken, answered: false };
+    showColorBox(shown);
+    playAudio(COLOR_AUDIO_PATH + spoken.audio);
+}
+function handleAnswer(isMatch) {
+    if (!gameState.current || gameState.current.answered) return;
+    const correct = (gameState.current.shown === gameState.current.spoken);
+    const userCorrect = (isMatch === correct);
+    gameState.current.answered = true;
+    gameState.totalGames++;
+    if (userCorrect) gameState.score++;
+    // Add to history
+    gameState.history.push({
+        shown: gameState.current.shown.name,
+        spoken: gameState.current.spoken.name,
+        input: isMatch ? 'Enter' : 'Space',
+        result: userCorrect ? 'Correct' : 'Wrong',
+        score: gameState.score,
+        percent: Math.round(100 * gameState.score / gameState.totalGames) + '%'
+    });
+    updateStats();
+    updateHistory();
+    playAudio(COLOR_AUDIO_PATH + (userCorrect ? RESULT_AUDIO.correct : RESULT_AUDIO.wrong));
+    // Next round after delay
+    setTimeout(nextRound, gameState.delay * 1000);
+}
+function resetGame() {
+    gameState.score = 0;
+    gameState.totalGames = 0;
+    gameState.history = [];
+    updateStats();
+    updateHistory();
+    gameState.current = null;
+    showColorBox({display:'#fff'});
+}
+
+// --- Audio ---
+function playAudio(src) {
+    const audio = new Audio(src);
+    audio.play();
+}
+document.getElementById('playColorAudio').onclick = function() {
+    if (gameState.current) playAudio(COLOR_AUDIO_PATH + gameState.current.spoken.audio);
+};
+document.getElementById('playResultAudio').onclick = function() {
+    if (!gameState.current) return;
+    const correct = (gameState.current.shown === gameState.current.spoken);
+    playAudio(COLOR_AUDIO_PATH + (correct ? RESULT_AUDIO.correct : RESULT_AUDIO.wrong));
+};
+
+// --- Settings ---
+document.getElementById('delaySelect').onchange = function(e) {
+    gameState.delay = parseInt(e.target.value);
+    setCookie('delay', gameState.delay);
+};
+function loadSettings() {
+    const delay = getCookie('delay');
+    if (delay) {
+        gameState.delay = parseInt(delay);
+        document.getElementById('delaySelect').value = delay;
+    }
+}
+
+// --- TEST Mode ---
+document.getElementById('testMode').onchange = function(e) {
+    gameState.testMode = e.target.checked;
+    if (gameState.testMode) {
+        gameState.testInterval = setInterval(() => {
+            if (!gameState.current || gameState.current.answered) return;
+            // Randomly pick Enter (true) or Space (false)
+            handleAnswer(Math.random() < 0.5);
+        }, 5000);
+    } else {
+        clearInterval(gameState.testInterval);
+        gameState.testInterval = null;
+    }
+};
+
+// --- Controls ---
+document.getElementById('startGameBtn').onclick = startGame;
+document.getElementById('resetBtn').onclick = resetGame;
+
+// --- Keyboard Events ---
+document.addEventListener('keydown', function(e) {
+    if (!gameState.current || gameState.current.answered) return;
+    if (e.code === 'Enter') {
+        handleAnswer(true);
+    } else if (e.code === 'Space') {
+        handleAnswer(false);
+    }
+});
+
+// --- Init ---
+loadSettings();
+updateStats();
+updateHistory();
+showColorBox({display:'#fff'});
+</script>
+</body>
+</html>
