@@ -27,20 +27,22 @@
     <h1>Color Naming Game</h1>
     <div class="color-box" id="colorBox"></div>
     <div class="audio-feedback">
-        <button id="playColorAudio">🔊 Play Color Name</button>
-        <button id="playResultAudio">🔊 Play Result</button>
+        <!-- Play Color Name button removed -->
     </div>
     <div class="controls">
         <button id="startGameBtn">Start Game</button>
         <label><input type="checkbox" id="testMode"> TEST</label>
     </div>
     <div class="settings">
-        <label for="delaySelect">Delay between rounds:</label>
+        <label for="delaySelect">Delay question:</label>
         <select id="delaySelect">
-            <option value="5">5 seconds</option>
-            <option value="10">10 seconds</option>
             <option value="20">20 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="5">5 seconds</option>
         </select>
+    </div>
+    <div class="countdown" style="text-align:center; font-size:1.2em; margin:10px 0;">
+        <span id="countdownTimer"></span>
     </div>
     <div class="stats">
         <span>Score: <b id="score">0</b></span>
@@ -86,10 +88,11 @@ let gameState = {
     totalGames: 0,
     history: [],
     current: null,
-    delay: 5,
+    delay: 20,
     testMode: false,
     testInterval: null
 };
+let countdownInterval = null;
 
 // --- Utility Functions ---
 function setCookie(name, value, days=365) {
@@ -121,6 +124,19 @@ function updateHistory() {
 function showColorBox(color) {
     const box = document.getElementById('colorBox');
     box.style.background = color.display;
+    // Change background of table, table header, and whole page
+    document.body.style.background = color.display;
+    const historyTable = document.getElementById('historyTable');
+    if (historyTable) {
+        historyTable.style.background = color.display;
+        const ths = historyTable.querySelectorAll('th');
+        ths.forEach(th => th.style.background = color.display);
+    }
+}
+
+function playIsShownColorAudio(color) {
+    // Play 'Is shown colour <color>.mp3' from static/ directory
+    playAudio(COLOR_AUDIO_PATH + `Is shown colour ${color.name}.mp3`);
 }
 
 // --- Game Logic ---
@@ -142,10 +158,27 @@ function nextRound() {
     }
     gameState.current = { shown, spoken, answered: false };
     showColorBox(shown);
-    playAudio(COLOR_AUDIO_PATH + spoken.audio);
+    // Start countdown
+    let countdown = gameState.delay;
+    const countdownElem = document.getElementById('countdownTimer');
+    countdownElem.textContent = countdown;
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+        countdown--;
+        countdownElem.textContent = countdown;
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            countdownElem.textContent = '';
+            playIsShownColorAudio(spoken);
+        }
+    }, 1000);
 }
 function handleAnswer(isMatch) {
     if (!gameState.current || gameState.current.answered) return;
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        document.getElementById('countdownTimer').textContent = '';
+    }
     const correct = (gameState.current.shown === gameState.current.spoken);
     const userCorrect = (isMatch === correct);
     gameState.current.answered = true;
@@ -174,6 +207,10 @@ function resetGame() {
     updateHistory();
     gameState.current = null;
     showColorBox({display:'#fff'});
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        document.getElementById('countdownTimer').textContent = '';
+    }
 }
 
 // --- Audio ---
@@ -181,14 +218,6 @@ function playAudio(src) {
     const audio = new Audio(src);
     audio.play();
 }
-document.getElementById('playColorAudio').onclick = function() {
-    if (gameState.current) playAudio(COLOR_AUDIO_PATH + gameState.current.spoken.audio);
-};
-document.getElementById('playResultAudio').onclick = function() {
-    if (!gameState.current) return;
-    const correct = (gameState.current.shown === gameState.current.spoken);
-    playAudio(COLOR_AUDIO_PATH + (correct ? RESULT_AUDIO.correct : RESULT_AUDIO.wrong));
-};
 
 // --- Settings ---
 document.getElementById('delaySelect').onchange = function(e) {
