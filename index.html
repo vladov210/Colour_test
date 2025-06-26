@@ -168,6 +168,7 @@ function startGame() {
     nextRound();
 }
 function nextRound() {
+    questionActive = true;
     // Pick shown color
     const shown = randomColor();
     // Decide if spoken matches (50% chance)
@@ -190,7 +191,10 @@ function nextRound() {
         if (countdown <= 0) {
             clearInterval(countdownInterval);
             countdownElem.textContent = '';
-            playIsShownColorAudio(spoken);
+            if (questionActive) {
+                playIsShownColorAudio(spoken);
+                questionActive = false;
+            }
         }
     }, 1000);
 }
@@ -218,7 +222,7 @@ function handleAnswer(isMatch) {
     updateHistory();
     if (userCorrect) {
         playAudio(COLOR_AUDIO_PATH + RESULT_AUDIO.correct);
-        nextRound();
+        setTimeout(nextRound, 700); // Give time for audio to play
     } else {
         // Play Wrong.mp3, then displayed color audio, then next round
         const wrongAudio = new Audio(COLOR_AUDIO_PATH + RESULT_AUDIO.wrong);
@@ -227,7 +231,7 @@ function handleAnswer(isMatch) {
             const colorAudio = new Audio(COLOR_AUDIO_PATH + gameState.current.shown.audio);
             colorAudio.play();
             colorAudio.onended = function() {
-                nextRound();
+                setTimeout(nextRound, 300); // Small pause after audio
             };
         };
     }
